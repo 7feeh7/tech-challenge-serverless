@@ -1,0 +1,39 @@
+name: PR Validation
+
+# Validacao sem credencial AWS — PR e push em develop.
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [develop]
+
+env:
+  NODE_VERSION: "20"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run type-check
+      - run: npm run test:cov
+      - run: npm run build
+
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: trufflesecurity/trufflehog@v3.82.13
+        with:
+          path: ./
+          base: ${{ github.event.pull_request.base.sha || github.event.before }}
+          head: HEAD
+          extra_args: --only-verified

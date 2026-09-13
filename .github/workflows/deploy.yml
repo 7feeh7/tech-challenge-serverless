@@ -1,0 +1,104 @@
+name: Deploy Functions
+
+# Deploy toca a nuvem — apenas push em main.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  NODE_VERSION: "20"
+  TF_ENVIRONMENT: producao
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run type-check
+      - run: npm run test:cov
+      - run: npm run build
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: producao
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Package auth-cpf
+        run: |
+          cd dist/auth-cpf
+          zip -r ../../lambda-auth-cpf.zip handler.js
+          cd ../..
+          npm ci --omit=dev
+          zip -ur lambda-auth-cpf.zip node_modules
+
+      - name: Package notificacao
+        run: |
+          cd dist/notificacao
+          zip -r ../../lambda-notificacao.zip handler.js
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Resolve SSM parameters
+        id: ssm
+        run: |
+          PREFIX="/tech-challenge/${{ env.TF_ENVIRONMENT }}"
+          BUCKET=$(aws ssm get-parameter --name "${PREFIX}/infra/lambda_artifacts_bucket" --query Parameter.Value --output text)
+          AUTH_FN=$(aws ssm get-parameter --name "${PREFIX}/infra/lambda_auth_function_name" --query Parameter.Value --output text)
+          NOTIF_FN=$(aws ssm get-parameter --name "${PREFIX}/infra/lambda_notificacao_function_name" --query Parameter.Value --output text)
+          echo "bucket=$BUCKET" >> $GITHUB_OUTPUT
+          echo "auth_fn=$AUTH_FN" >> $GITHUB_OUTPUT
+          echo "notif_fn=$NOTIF_FN" >> $GITHUB_OUTPUT
+
+      - name: Upload auth-cpf artifact (immutable SHA)
+        run: |
+          SHA="${{ github.sha }}"
+          aws s3 cp lambda-auth-cpf.zip "s3://${{ steps.ssm.outputs.bucket }}/lambda-auth-cpf/${SHA}.zip"
+          aws s3 cp lambda-auth-cpf.zip "s3://${{ steps.ssm.outputs.bucket }}/lambda-auth-cpf/latest.zip"
+
+      - name: Deploy auth-cpf
+        run: |
+          SHA="${{ github.sha }}"
+          aws lambda update-function-code \
+            --function-name "${{ steps.ssm.outputs.auth_fn }}" \
+            --s3-bucket "${{ steps.ssm.outputs.bucket }}" \
+            --s3-key "lambda-auth-cpf/${SHA}.zip"
+          aws lambda wait function-updated --function-name "${{ steps.ssm.outputs.auth_fn }}"
+          aws lambda publish-version \
+            --function-name "${{ steps.ssm.outputs.auth_fn }}" \
+            --description "commit ${SHA}"
+
+      - name: Upload and deploy notificacao
+        run: |
+          SHA="${{ github.sha }}"
+          aws s3 cp lambda-notificacao.zip "s3://${{ steps.ssm.outputs.bucket }}/lambda-notificacao/${SHA}.zip"
+          aws lambda update-function-code \
+            --function-name "${{ steps.ssm.outputs.notif_fn }}" \
+            --s3-bucket "${{ steps.ssm.outputs.bucket }}" \
+            --s3-key "lambda-notificacao/${SHA}.zip"
+          aws lambda wait function-updated --function-name "${{ steps.ssm.outputs.notif_fn }}"
+
+      - name: Smoke test auth Lambda
+        run: |
+          aws lambda get-function --function-name "${{ steps.ssm.outputs.auth_fn }}" \
+            --query 'Configuration.State' --output text | grep -q Active

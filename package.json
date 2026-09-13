@@ -1,0 +1,39 @@
+{
+  "name": "tech-challenge-serverless",
+  "version": "1.0.0",
+  "description": "AWS Lambda functions — autenticacao por CPF e notificacao de status",
+  "private": true,
+  "license": "UNLICENSED",
+  "scripts": {
+    "build": "npm run build:auth && npm run build:notificacao",
+    "build:auth": "esbuild src/functions/auth-cpf/handler.ts --bundle --platform=node --target=node20 --outfile=dist/auth-cpf/handler.js --external:@aws-sdk/*",
+    "build:notificacao": "esbuild src/functions/notificacao/handler.ts --bundle --platform=node --target=node20 --outfile=dist/notificacao/handler.js --external:@aws-sdk/*",
+    "lint": "eslint src/ tests/",
+    "type-check": "tsc --noEmit",
+    "test": "jest",
+    "test:cov": "jest --coverage"
+  },
+  "dependencies": {
+    "@aws-sdk/client-secrets-manager": "^3.958.0",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.145",
+    "@types/jest": "^29.5.14",
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/node": "^20.17.0",
+    "@types/pg": "^8.11.10",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "esbuild": "^0.24.0",
+    "eslint": "^9.0.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.50.1"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
