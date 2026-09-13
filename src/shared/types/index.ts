@@ -20,8 +20,4 @@ export interface ErrorResponse {
   code: string;
 }
 
-export interface NotificacaoPayload {
-  destinatario: string;
-  assunto: string;
-  corpo: string;
-}
+export * from './status-changed.event';
