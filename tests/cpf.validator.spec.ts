@@ -16,4 +16,8 @@ describe('cpf.validator', () => {
   it('rejeita CPF invalido', () => {
     expect(validarCPF('123.456.789-00')).toBe(false);
   });
+
+  it('rejeita CPF vazio', () => {
+    expect(validarCPF('')).toBe(false);
+  });
 });

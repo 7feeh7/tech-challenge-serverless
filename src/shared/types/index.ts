@@ -1,30 +1,23 @@
-export interface Cliente {
+export interface ClienteAuth {
   id: string;
-  nome: string;
-  documento: string;
-  email: string;
-  telefone?: string;
+  ativo: boolean;
 }
 
-export interface TokenPayload {
+export interface ClienteTokenPayload {
   sub: string;
-  cpf: string;
-  nome: string;
-  email: string;
-  roles: string[];
+  tipo: 'CLIENTE';
+  perfil: 'CLIENTE';
 }
 
 export interface AuthResponse {
   accessToken: string;
-  cliente: {
-    id: string;
-    nome: string;
-    email: string;
-  };
+  tokenType: 'Bearer';
+  expiresIn: number;
 }
 
 export interface ErrorResponse {
   error: string;
+  code: string;
 }
 
 export interface NotificacaoPayload {

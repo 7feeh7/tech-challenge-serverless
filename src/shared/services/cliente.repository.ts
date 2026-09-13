@@ -1,39 +1,35 @@
-import {
-  GetSecretValueCommand,
-  SecretsManagerClient,
-} from '@aws-sdk/client-secrets-manager';
 import { Client } from 'pg';
-import { Cliente } from '../types';
+import { ClienteRepository } from '../ports/cliente.repository';
+import { ClienteAuth } from '../types';
+import { obterSecret } from './secrets.service';
 
 let client: Client | null = null;
-
-interface DbCredentials {
+let dbCredentials: {
   host: string;
   port: number;
   user: string;
   password: string;
   database: string;
-}
+} | null = null;
 
-let dbCredentials: DbCredentials | null = null;
-const secretsClient = new SecretsManagerClient({});
-
-async function getDbCredentials(): Promise<DbCredentials> {
+async function getDbCredentials() {
   if (!dbCredentials) {
     const secretArn = process.env.DB_SECRET_ARN;
     if (!secretArn) {
       throw new Error('DB_SECRET_ARN nao configurado');
     }
 
-    const response = await secretsClient.send(
-      new GetSecretValueCommand({ SecretId: secretArn }),
-    );
-
-    const secret = JSON.parse(response.SecretString || '{}');
+    const secret = JSON.parse(await obterSecret(secretArn)) as {
+      host: string;
+      port: string | number;
+      username: string;
+      password: string;
+      dbname?: string;
+    };
 
     dbCredentials = {
       host: secret.host,
-      port: parseInt(secret.port || '5432', 10),
+      port: parseInt(String(secret.port || '5432'), 10),
       user: secret.username,
       password: secret.password,
       database: secret.dbname || 'oficina',
@@ -59,18 +55,20 @@ async function getConnection(): Promise<Client> {
   return client;
 }
 
-export async function buscarClientePorCPF(cpf: string): Promise<Cliente | null> {
-  const conn = await getConnection();
-  const result = await conn.query<Cliente>(
-    'SELECT id, nome, documento, email, telefone FROM clientes WHERE documento = $1',
-    [cpf],
-  );
+export class PostgresClienteRepository implements ClienteRepository {
+  async buscarPorCpf(cpf: string): Promise<ClienteAuth | null> {
+    const conn = await getConnection();
+    const result = await conn.query<{ id: string; ativo: boolean }>(
+      'SELECT id, ativo FROM clientes WHERE cpf_cnpj = $1 AND LENGTH(cpf_cnpj) = 11',
+      [cpf],
+    );
 
-  if (result.rowCount === 0) {
-    return null;
+    if (result.rowCount === 0) {
+      return null;
+    }
+
+    return result.rows[0];
   }
-
-  return result.rows[0];
 }
 
 export async function closeConnection(): Promise<void> {
@@ -80,6 +78,6 @@ export async function closeConnection(): Promise<void> {
   }
 }
 
-export function resetCredentialsCache(): void {
+export function resetDbCache(): void {
   dbCredentials = null;
 }

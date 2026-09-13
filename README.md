@@ -75,3 +75,23 @@ Artefatos usam tag imutavel `{commit_sha}.zip`; `latest.zip` e alias secundario.
 3. Ou reverta o commit e faca merge na branch alvo.
 
 Detalhes funcionais das Functions: specs `002` (auth) e `004` (notificacao).
+
+## Contrato `POST /auth/cpf`
+
+Documentacao completa em [docs/contrato-auth-cpf.md](docs/contrato-auth-cpf.md).
+
+Resumo:
+
+- Body: `{ "cpf": "000.000.000-00" }`
+- Sucesso: `{ "accessToken", "tokenType": "Bearer", "expiresIn" }`
+- Erros: `400` (body/CPF), `401` (nao autorizado), `500`
+- JWT: `sub`, `tipo`, `perfil`, `iss`, `aud`, `iat`, `exp`, `jti` — sem PII
+- Sem refresh token
+
+### Variaveis locais
+
+| Variavel | Descricao |
+| --- | --- |
+| `JWT_SECRET` | Segredo local (nunca igual ao provisionado) |
+| `DB_SECRET_ARN` | Credenciais RDS |
+| `JWT_ISSUER` / `JWT_AUDIENCE` | Claims padrao |
