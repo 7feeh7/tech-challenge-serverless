@@ -1,6 +1,29 @@
 # tech-challenge-serverless
 
-Functions AWS Lambda da oficina: autenticacao de clientes por CPF e notificacao de status de ordem de servico.
+Functions AWS Lambda da oficina: autenticação de clientes por CPF e notificação de status de ordem de serviço.
+
+## Propósito e limites
+
+| Dentro deste repo | Fora deste repo |
+| --- | --- |
+| Código TypeScript das Functions `auth-cpf` e `notificacao` | Shell IAM/VPC/S3 das Lambdas → `tech-challenge-infra-kubernetes` |
+| Build ZIP + upload S3 + update-function-code | API Gateway, filas, RDS → infra |
+| Testes unitários e contratos em `docs/` | Schema Prisma e migrations → `tech-challenge-oficina` |
+
+## Tecnologias
+
+| Tecnologia | Versão |
+| --- | --- |
+| Node.js | 20+ |
+| TypeScript | 5.7 |
+| esbuild | 0.24 |
+| pg | 8 |
+| jsonwebtoken | 9 |
+| Jest | 29 |
+
+## Dockerfile
+
+**Não aplicável.** Deploy via artefato ZIP (`{commit_sha}.zip`) no S3; runtime é Node.js gerenciado pela AWS Lambda, não container.
 
 ## Arquitetura (este repositório)
 
@@ -12,7 +35,7 @@ flowchart LR
     NOTIF --> SG[SendGrid]
 ```
 
-Visão completa: [`tech-challenge/docs/diagramas/componentes-nuvem.md`](../tech-challenge/docs/diagramas/componentes-nuvem.md) · Sequência auth: [`sequencia-auth-cpf.md`](../tech-challenge/docs/diagramas/sequencia-auth-cpf.md) · RFCs/ADRs: [`tech-challenge/docs/rfcs/`](../tech-challenge/docs/rfcs/README.md), [`adrs/`](../tech-challenge/docs/adrs/README.md)
+Visão completa: [diagrama componentes](https://github.com/7feeh7/tech-challenge-oficina/blob/main/docs/diagramas/componentes-nuvem.md) · Sequência auth: [sequencia-auth-cpf](https://github.com/7feeh7/tech-challenge-oficina/blob/main/docs/diagramas/sequencia-auth-cpf.md) · RFCs/ADRs: [rfcs](https://github.com/7feeh7/tech-challenge-oficina/tree/main/docs/rfcs), [adrs](https://github.com/7feeh7/tech-challenge-oficina/tree/main/docs/adrs)
 
 ## Functions
 
@@ -87,6 +110,27 @@ Artefatos usam tag imutavel `{commit_sha}.zip`; `latest.zip` e alias secundario.
 3. Ou reverta o commit e faca merge na branch alvo.
 
 Detalhes funcionais das Functions: specs `002` (auth) e `004` (notificacao).
+
+## Repositórios relacionados
+
+| Repositório | URL | Papel |
+| --- | --- | --- |
+| tech-challenge-oficina | https://github.com/7feeh7/tech-challenge-oficina | API NestJS, docs centrais, Swagger `/docs` |
+| tech-challenge-infra-kubernetes | https://github.com/7feeh7/tech-challenge-infra-kubernetes | Provisiona Lambdas (shell), Gateway, SSM |
+| tech-challenge-infra-database | https://github.com/7feeh7/tech-challenge-infra-database | RDS + secret consumido pela auth-cpf |
+
+**Ordem de deploy:** infra-kubernetes (1º) → infra-database (2º) → **este repo** (3º) → aplicação (4º).
+
+## Swagger / OpenAPI
+
+**Não aplicável neste repositório** (sem API HTTP própria). Contratos:
+
+- Auth: [`docs/contrato-auth-cpf.md`](docs/contrato-auth-cpf.md) — endpoint público `POST /auth/cpf` no Gateway
+- API de negócio: [OpenAPI da aplicação](https://github.com/7feeh7/tech-challenge-oficina/blob/main/docs/openapi.json) · runtime `{api_gateway_url}/docs`
+
+## Deploy ativo
+
+Após merge em `main`, o workflow publica ZIP no bucket SSM `infra/lambda_artifacts_bucket` e atualiza as Functions. Endpoint de auth: `{api_gateway_url}/auth/cpf` (SSM `api_gateway_auth_url`).
 
 ## Contrato `POST /auth/cpf`
 
