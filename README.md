@@ -2,6 +2,18 @@
 
 Functions AWS Lambda da oficina: autenticacao de clientes por CPF e notificacao de status de ordem de servico.
 
+## Arquitetura (este repositório)
+
+```mermaid
+flowchart LR
+    GW[API Gateway /auth/cpf] --> AUTH[Lambda auth-cpf]
+    SQS[SQS notificacao] --> NOTIF[Lambda notificacao]
+    AUTH --> RDS[(RDS)]
+    NOTIF --> SG[SendGrid]
+```
+
+Visão completa: [`tech-challenge/docs/diagramas/componentes-nuvem.md`](../tech-challenge/docs/diagramas/componentes-nuvem.md) · Sequência auth: [`sequencia-auth-cpf.md`](../tech-challenge/docs/diagramas/sequencia-auth-cpf.md) · RFCs/ADRs: [`tech-challenge/docs/rfcs/`](../tech-challenge/docs/rfcs/README.md), [`adrs/`](../tech-challenge/docs/adrs/README.md)
+
 ## Functions
 
 | Function | Trigger | Descricao |
