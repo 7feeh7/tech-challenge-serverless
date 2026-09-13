@@ -16,7 +16,13 @@ const EXPIRES_IN_SECONDS = 3600;
 async function obterJwtSecret(): Promise<string> {
   const secretArn = process.env.JWT_SECRET_ARN;
   if (secretArn) {
-    return obterSecret(secretArn);
+    const raw = await obterSecret(secretArn);
+    try {
+      const parsed = JSON.parse(raw) as { secret?: string };
+      return parsed.secret ?? raw;
+    } catch {
+      return raw;
+    }
   }
 
   const secret = process.env.JWT_SECRET;

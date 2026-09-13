@@ -9,6 +9,10 @@ const CORS_HEADERS = {
 };
 
 export function parseApiGatewayEvent(event: APIGatewayProxyEvent): HttpRequest {
+  const sourceIp =
+    event.requestContext.identity?.sourceIp ??
+    (event.requestContext as { http?: { sourceIp?: string } }).http?.sourceIp;
+
   return {
     method: event.httpMethod,
     body: event.body,
@@ -16,6 +20,7 @@ export function parseApiGatewayEvent(event: APIGatewayProxyEvent): HttpRequest {
       event.headers['x-correlation-id'] ??
       event.headers['X-Correlation-Id'] ??
       event.requestContext.requestId,
+    sourceIp,
   };
 }
 

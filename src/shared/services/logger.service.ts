@@ -1,6 +1,12 @@
 export interface LogContext {
   correlationId: string;
-  resultado: 'sucesso' | 'nao_autorizado' | 'cpf_invalido' | 'body_invalido' | 'erro_interno';
+  resultado:
+    | 'sucesso'
+    | 'nao_autorizado'
+    | 'cpf_invalido'
+    | 'body_invalido'
+    | 'rate_limit'
+    | 'erro_interno';
   duracaoMs: number;
   cpfMascarado?: string;
 }

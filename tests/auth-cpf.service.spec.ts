@@ -1,6 +1,8 @@
 import { AuthCpfService } from '../src/functions/auth-cpf/auth-cpf.service';
 import { ClienteRepository } from '../src/shared/ports/cliente.repository';
 import * as jwtService from '../src/shared/services/jwt.service';
+import * as rateLimit from '../src/shared/services/cpf-rate-limit.service';
+import * as timingPad from '../src/shared/services/timing-pad.service';
 
 describe('AuthCpfService', () => {
   const clientes: jest.Mocked<ClienteRepository> = {
@@ -13,12 +15,17 @@ describe('AuthCpfService', () => {
     jest.clearAllMocks();
     jest.spyOn(jwtService, 'gerarTokenCliente').mockResolvedValue('token-jwt');
     jest.spyOn(jwtService, 'obterExpiracaoSegundos').mockReturnValue(3600);
+    jest.spyOn(rateLimit, 'verificarLimiteCpf').mockResolvedValue(undefined);
+    jest
+      .spyOn(timingPad, 'garantirTempoRespostaUniforme')
+      .mockResolvedValue(undefined);
   });
 
   const request = (body: unknown, method = 'POST') => ({
     method,
     body: JSON.stringify(body),
     correlationId: 'corr-1',
+    sourceIp: '203.0.113.10',
   });
 
   it('retorna 400 para body malformado', async () => {
@@ -75,11 +82,33 @@ describe('AuthCpfService', () => {
     const response = await service.autenticar(request({ cpf: '52998224725' }));
 
     expect(clientes.buscarPorCpf).toHaveBeenCalledWith('52998224725');
+    expect(rateLimit.verificarLimiteCpf).toHaveBeenCalledWith('52998224725');
+    expect(timingPad.garantirTempoRespostaUniforme).toHaveBeenCalled();
     expect(response.statusCode).toBe(200);
     expect(JSON.parse(response.body)).toEqual({
       accessToken: 'token-jwt',
       tokenType: 'Bearer',
       expiresIn: 3600,
     });
+  });
+
+  it('retorna 429 quando limite por CPF e excedido', async () => {
+    jest
+      .spyOn(rateLimit, 'verificarLimiteCpf')
+      .mockRejectedValue(new rateLimit.CpfRateLimitExceeded());
+
+    const response = await service.autenticar(request({ cpf: '529.982.247-25' }));
+
+    expect(response.statusCode).toBe(429);
+    expect(JSON.parse(response.body).code).toBe('RATE_LIMIT');
+    expect(clientes.buscarPorCpf).not.toHaveBeenCalled();
+  });
+
+  it('aplica padding de tempo em respostas 401', async () => {
+    clientes.buscarPorCpf.mockResolvedValue(null);
+
+    await service.autenticar(request({ cpf: '529.982.247-25' }));
+
+    expect(timingPad.garantirTempoRespostaUniforme).toHaveBeenCalled();
   });
 });

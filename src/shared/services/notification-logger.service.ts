@@ -12,6 +12,8 @@ export interface NotificationLogContext {
   detalhe?: string;
 }
 
+import { sanitizarDetalhe } from './pii-mask.service';
+
 export function logNotificationEvent(context: NotificationLogContext): void {
   console.log(
     JSON.stringify({
@@ -20,6 +22,7 @@ export function logNotificationEvent(context: NotificationLogContext): void {
       environment: process.env.NODE_ENV ?? 'development',
       integration: 'sqs',
       ...context,
+      detalhe: sanitizarDetalhe(context.detalhe),
     }),
   );
 
