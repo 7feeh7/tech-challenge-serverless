@@ -1,3 +1,5 @@
+import { logIntegrationMetric } from '../services/integration-metrics.service';
+
 export interface EmailMessage {
   to: string;
   from: string;
@@ -14,6 +16,7 @@ export class SendGridEmailSender implements EmailSender {
   constructor(private readonly apiKey: string) {}
 
   async send(message: EmailMessage): Promise<void> {
+    const startedAt = Date.now();
     const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
       method: 'POST',
       headers: {
@@ -32,8 +35,19 @@ export class SendGridEmailSender implements EmailSender {
     });
 
     if (!response.ok) {
+      logIntegrationMetric({
+        integration: 'sendgrid',
+        result: 'failure',
+        durationMs: Date.now() - startedAt,
+      });
       const body = await response.text();
       throw new Error(`SendGrid error ${response.status}: ${body}`);
     }
+
+    logIntegrationMetric({
+      integration: 'sendgrid',
+      result: 'success',
+      durationMs: Date.now() - startedAt,
+    });
   }
 }
