@@ -1,3 +1,5 @@
+import { ConsultaClienteOsError } from '../types/consulta-cliente-os.error';
+
 export interface LogContext {
   correlationId: string;
   resultado:
@@ -25,6 +27,24 @@ export function logAuthEvent(context: LogContext): void {
       resultado: context.resultado,
       duracaoMs: context.duracaoMs,
       ...(context.cpfMascarado ? { cpf: context.cpfMascarado } : {}),
+    }),
+  );
+}
+
+// Registra so o tipo e o motivo da falha: mensagens de erro de bibliotecas
+// podem citar URL, CPF ou trechos de segredo.
+export function logErroInterno(correlationId: string, error: unknown): void {
+  const detalhes =
+    error instanceof ConsultaClienteOsError
+      ? { motivo: error.motivo, statusOs: error.statusHttp }
+      : {};
+
+  console.error(
+    JSON.stringify({
+      evento: 'auth_cpf_erro',
+      correlationId,
+      erro: error instanceof Error ? error.name : 'desconhecido',
+      ...detalhes,
     }),
   );
 }

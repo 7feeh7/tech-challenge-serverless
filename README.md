@@ -1,6 +1,6 @@
 # tech-challenge-serverless
 
-Functions AWS Lambda da oficina: autenticação de clientes por CPF e notificação de status de ordem de serviço.
+Functions AWS Lambda da oficina: autenticação de clientes por CPF (consulta HTTP ao OS e token RS256) e notificação de status de ordem de serviço.
 
 ## Propósito e limites
 
@@ -17,7 +17,6 @@ Functions AWS Lambda da oficina: autenticação de clientes por CPF e notificaç
 | Node.js | 20+ |
 | TypeScript | 5.7 |
 | esbuild | 0.24 |
-| pg | 8 |
 | jsonwebtoken | 9 |
 | Jest | 29 |
 
@@ -31,7 +30,7 @@ Functions AWS Lambda da oficina: autenticação de clientes por CPF e notificaç
 flowchart LR
     GW[API Gateway /auth/cpf] --> AUTH[Lambda auth-cpf]
     SQS[SQS notificacao] --> NOTIF[Lambda notificacao]
-    AUTH --> RDS[(RDS)]
+    AUTH -->|HTTP interno via NLB| OS[OS Service]
     NOTIF --> SG[SendGrid]
 ```
 
@@ -41,7 +40,7 @@ Visão completa: [diagrama componentes](https://github.com/7feeh7/tech-challenge
 
 | Function | Trigger | Descricao |
 | --- | --- | --- |
-| `auth-cpf` | API Gateway `POST /auth/cpf` | Valida CPF, busca cliente no PostgreSQL e emite JWT |
+| `auth-cpf` | API Gateway `POST /auth/cpf` | Valida CPF, consulta o cliente no OS por HTTP interno e emite JWT RS256 |
 | `notificacao` | SQS (spec 004) | Envia e-mail de mudanca de status e de pagamento disponivel; item invalido vai para a DLQ (`batchItemFailures`). Contrato: [docs/contrato-evento-notificacao.md](docs/contrato-evento-notificacao.md) |
 
 Codigo provisionado (shell/IAM/VPC) em `tech-challenge-infra-kubernetes`. Este repositorio e a **fonte de verdade** do codigo das Functions.
@@ -54,7 +53,8 @@ src/
     auth-cpf/handler.ts
     notificacao/handler.ts
   shared/
-    services/     database (PostgreSQL), jwt
+    adapters/     api-gateway, os-cliente (HTTP ao OS), sendgrid
+    services/     jwt, secrets, logs e metricas
     validators/   cpf
     types/
 tests/
@@ -86,7 +86,6 @@ Prefixo unico: `/tech-challenge/producao/`
 | `infra/lambda_artifacts_bucket` | Upload ZIP `{sha}.zip` |
 | `infra/lambda_auth_function_name` | Deploy auth-cpf |
 | `infra/lambda_notificacao_function_name` | Deploy notificacao |
-| `database/db_secret_arn` | Runtime da auth-cpf |
 
 ## GitHub Secrets (Environment `producao`)
 
@@ -123,7 +122,7 @@ Detalhes funcionais das Functions: specs `002` (auth) e `004` (notificacao).
 | --- | --- | --- |
 | tech-challenge-oficina | https://github.com/7feeh7/tech-challenge-oficina | API NestJS, docs centrais, Swagger `/docs` |
 | tech-challenge-infra-kubernetes | https://github.com/7feeh7/tech-challenge-infra-kubernetes | Provisiona Lambdas (shell), Gateway, SSM |
-| tech-challenge-infra-database | https://github.com/7feeh7/tech-challenge-infra-database | RDS + secret consumido pela auth-cpf |
+| tech-challenge-infra-database | https://github.com/7feeh7/tech-challenge-infra-database | RDS do OS e do Billing (a auth-cpf não acessa banco: D0.4) |
 
 **Ordem de deploy:** infra-kubernetes (1º) → infra-database (2º) → **este repo** (3º) → aplicação (4º).
 
@@ -150,10 +149,16 @@ Resumo:
 - JWT: `sub`, `tipo`, `perfil`, `iss`, `aud`, `iat`, `exp`, `jti` — sem PII
 - Sem refresh token
 
-### Variaveis locais
+### Variaveis de ambiente da `auth-cpf`
 
 | Variavel | Descricao |
 | --- | --- |
-| `JWT_SECRET` | Segredo local (nunca igual ao provisionado) |
-| `DB_SECRET_ARN` | Credenciais RDS |
-| `JWT_ISSUER` / `JWT_AUDIENCE` | Claims padrao |
+| `OS_SERVICE_BASE_URL` | URL base do OS alcancada pela Lambda (NLB interno), sem barra final obrigatoria. **Nova** |
+| `AUTH_CPF_OS_TOKEN_ARN` | ARN do segredo `token-auth-cpf-os` (campo `token`), enviado ao OS como `Authorization: Bearer` |
+| `JWT_SECRET_ARN` | ARN do segredo da chave **privada** RS256 (campo `privateKey`; nome legado mantido). Antes guardava o segredo HS256 (campo `secret`) |
+| `JWT_ISSUER` / `JWT_AUDIENCE` | Claims `iss` e `aud` (padroes `tech-challenge-auth` e `tech-challenge-api`) |
+| `JWT_EXPIRES_IN` | Expiracao do token (padrao `1h`) |
+| `AUTH_RATE_LIMIT_TABLE`, `AUTH_CPF_MAX_ATTEMPTS`, `AUTH_CPF_WINDOW_SECONDS` | Limite de tentativas por CPF (DynamoDB) |
+| `AUTH_RESPONSE_TARGET_MS` | Tempo minimo uniforme de resposta |
+
+Removidas: `DB_SECRET_ARN` (a Lambda nao acessa banco, D0.4) e `JWT_SECRET` (HS256, fallback local). Detalhes do fluxo de tokens e da rota do OS em [docs/contrato-auth-cpf.md](docs/contrato-auth-cpf.md).
