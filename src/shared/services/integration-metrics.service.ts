@@ -1,5 +1,5 @@
 export type IntegrationName =
-  | 'postgresql'
+  | 'os_service'
   | 'sns'
   | 'sqs'
   | 'sendgrid'

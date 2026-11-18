@@ -43,3 +43,25 @@ export async function obterSecret(secretArn: string): Promise<string> {
 export function limparCacheSecrets(): void {
   cache.clear();
 }
+
+export async function obterCampoSecret(
+  secretArn: string,
+  campo: string,
+): Promise<string> {
+  const bruto = await obterSecret(secretArn);
+
+  // O erro nativo do JSON.parse cita trechos do conteudo, que e sigiloso.
+  let conteudo: Record<string, unknown>;
+  try {
+    conteudo = JSON.parse(bruto) as Record<string, unknown>;
+  } catch {
+    throw new Error(`Secret ${secretArn} nao e um JSON valido`);
+  }
+
+  const valor = conteudo?.[campo];
+  if (typeof valor !== 'string' || !valor.trim()) {
+    throw new Error(`Secret ${secretArn} sem o campo ${campo}`);
+  }
+
+  return valor;
+}
