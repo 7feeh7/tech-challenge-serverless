@@ -1,6 +1,8 @@
 import { SQSEvent, SQSRecord } from 'aws-lambda';
 import { SendGridEmailSender } from '../../shared/adapters/sendgrid.adapter';
+import { sanitizarDetalhe } from '../../shared/services/pii-mask.service';
 import { obterSecret } from '../../shared/services/secrets.service';
+import { extractMessageIdentifiers } from '../../shared/types/notificacao.event';
 import {
   NotificacaoService,
   PermanentNotificationError,
@@ -40,26 +42,11 @@ export const handler = async (
 
   for (const record of event.Records) {
     try {
-      await processRecord(service, record);
+      await service.processRecord(record.body);
     } catch (error) {
-      if (error instanceof PermanentNotificationError) {
-        console.error(
-          JSON.stringify({
-            evento: 'notificacao_status_permanente',
-            messageId: record.messageId,
-            erro: error.message,
-          }),
-        );
-        continue;
-      }
-
-      console.error(
-        JSON.stringify({
-          evento: 'notificacao_status_retry',
-          messageId: record.messageId,
-          erro: error instanceof Error ? error.message : String(error),
-        }),
-      );
+      logRecordFailure(record, error);
+      // Falha permanente também é reportada: a mensagem volta à fila e segue
+      // para a DLQ ao atingir o maxReceiveCount, em vez de ser descartada.
       failures.push({ itemIdentifier: record.messageId });
     }
   }
@@ -67,9 +54,20 @@ export const handler = async (
   return { batchItemFailures: failures };
 };
 
-async function processRecord(
-  service: NotificacaoService,
-  record: SQSRecord,
-): Promise<void> {
-  await service.processRecord(record.body);
+function logRecordFailure(record: SQSRecord, error: unknown): void {
+  const evento =
+    error instanceof PermanentNotificationError
+      ? 'notificacao_status_permanente'
+      : 'notificacao_status_retry';
+
+  console.error(
+    JSON.stringify({
+      evento,
+      messageId: record.messageId,
+      correlationId: extractMessageIdentifiers(record.body).correlationId,
+      erro: sanitizarDetalhe(
+        error instanceof Error ? error.message : String(error),
+      ),
+    }),
+  );
 }

@@ -1,6 +1,7 @@
 export interface NotificationLogContext {
   correlationId: string;
   eventId: string;
+  eventType?: string;
   ordemServicoId: string;
   resultado:
     | 'enviado'

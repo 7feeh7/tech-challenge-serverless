@@ -42,7 +42,7 @@ Visão completa: [diagrama componentes](https://github.com/7feeh7/tech-challenge
 | Function | Trigger | Descricao |
 | --- | --- | --- |
 | `auth-cpf` | API Gateway `POST /auth/cpf` | Valida CPF, busca cliente no PostgreSQL e emite JWT |
-| `notificacao` | SQS (spec 004) | Envia e-mail de mudanca de status |
+| `notificacao` | SQS (spec 004) | Envia e-mail de mudanca de status e de pagamento disponivel; item invalido vai para a DLQ (`batchItemFailures`). Contrato: [docs/contrato-evento-notificacao.md](docs/contrato-evento-notificacao.md) |
 
 Codigo provisionado (shell/IAM/VPC) em `tech-challenge-infra-kubernetes`. Este repositorio e a **fonte de verdade** do codigo das Functions.
 
@@ -102,6 +102,12 @@ Prefixo unico: `/tech-challenge/producao/`
 | `main` | `deploy.yml` | **sim** |
 
 Artefatos usam tag imutavel `{commit_sha}.zip`; `latest.zip` e alias secundario.
+
+## Auditoria de dependencias
+
+O `pr-validation.yml` roda `npx audit-ci --config audit-ci.jsonc`: falha para qualquer vulnerabilidade `high` ou `critical`, em producao e desenvolvimento, exceto os advisories listados em `audit-ci.jsonc`.
+
+Excecao vigente: `GHSA-fc5q-39xc-vjpf` (`picomatch <=4.0.7`, ReDoS em extglobs). Nao ha versao corrigida publicada e a cadeia e so de desenvolvimento (jest, ts-jest, eslint); nao entra no bundle das Lambdas. **Condicao de remocao:** quando sair um `picomatch` corrigido, atualize a dependencia (ou use `overrides`, como no commit `95c6f7c`), remova a entrada da `allowlist` e confirme `npx audit-ci --config audit-ci.jsonc`. Para auditar so producao: `npm audit --omit=dev --audit-level=high`.
 
 ## Rollback
 
