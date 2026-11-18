@@ -1,9 +1,15 @@
+import { InvalidNotificationEventError } from './invalid-notification-event.error';
+
 export enum StatusOS {
   RECEBIDA = 'RECEBIDA',
   EM_DIAGNOSTICO = 'EM_DIAGNOSTICO',
   AGUARDANDO_APROVACAO = 'AGUARDANDO_APROVACAO',
+  AGUARDANDO_PAGAMENTO = 'AGUARDANDO_PAGAMENTO',
+  AGUARDANDO_EXECUCAO = 'AGUARDANDO_EXECUCAO',
   EM_EXECUCAO = 'EM_EXECUCAO',
+  EM_CANCELAMENTO = 'EM_CANCELAMENTO',
   FINALIZADA = 'FINALIZADA',
+  CANCELADA = 'CANCELADA',
   ENTREGUE = 'ENTREGUE',
 }
 
@@ -30,7 +36,7 @@ export interface StatusChangedEventV1 {
 
 const STATUS_VALUES = new Set<string>(Object.values(StatusOS));
 
-export class InvalidStatusChangedEventError extends Error {
+export class InvalidStatusChangedEventError extends InvalidNotificationEventError {
   constructor(message: string) {
     super(message);
     this.name = 'InvalidStatusChangedEventError';
@@ -97,11 +103,25 @@ export function parseStatusChangedEvent(
 }
 
 export function extractEventFromSqsBody(body: string): unknown {
-  const parsed = JSON.parse(body) as { Message?: string };
+  const parsed = parseJson(body);
 
-  if (typeof parsed.Message === 'string') {
-    return JSON.parse(parsed.Message);
+  if (
+    typeof parsed === 'object' &&
+    parsed !== null &&
+    typeof (parsed as { Message?: unknown }).Message === 'string'
+  ) {
+    return parseJson((parsed as { Message: string }).Message);
   }
 
   return parsed;
+}
+
+function parseJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new InvalidNotificationEventError(
+      'Corpo da mensagem não é um JSON válido',
+    );
+  }
 }

@@ -1,16 +1,16 @@
 import { EmailSender } from '../../shared/adapters/sendgrid.adapter';
-import { buildStatusChangedEmail } from '../../shared/services/email-content.service';
+import { buildNotificacaoEmail } from '../../shared/services/email-content.service';
 import {
   markEventProcessed,
   wasEventProcessed,
 } from '../../shared/services/dedupe.service';
 import { logNotificationEvent } from '../../shared/services/notification-logger.service';
+import { InvalidNotificationEventError } from '../../shared/types/invalid-notification-event.error';
 import {
-  InvalidStatusChangedEventError,
-  StatusChangedEventV1,
-  extractEventFromSqsBody,
-  parseStatusChangedEvent,
-} from '../../shared/types/status-changed.event';
+  NotificacaoEvent,
+  extractMessageIdentifiers,
+  parseNotificacaoEvent,
+} from '../../shared/types/notificacao.event';
 
 export class PermanentNotificationError extends Error {
   constructor(message: string) {
@@ -35,15 +35,13 @@ export class NotificacaoService {
   async processRecord(body: string): Promise<void> {
     const startedAt = Date.now();
 
-    let event: StatusChangedEventV1;
+    let event: NotificacaoEvent;
     try {
-      event = parseStatusChangedEvent(extractEventFromSqsBody(body));
+      event = parseNotificacaoEvent(body);
     } catch (error) {
-      if (error instanceof InvalidStatusChangedEventError) {
+      if (error instanceof InvalidNotificationEventError) {
         logNotificationEvent({
-          correlationId: 'desconhecido',
-          eventId: 'desconhecido',
-          ordemServicoId: 'desconhecido',
+          ...extractMessageIdentifiers(body),
           resultado: 'invalido',
           duracaoMs: Date.now() - startedAt,
           detalhe: error.message,
@@ -57,6 +55,7 @@ export class NotificacaoService {
       logNotificationEvent({
         correlationId: event.correlationId,
         eventId: event.eventId,
+        eventType: event.eventType,
         ordemServicoId: event.ordemServicoId,
         resultado: 'sem_email',
         duracaoMs: Date.now() - startedAt,
@@ -68,6 +67,7 @@ export class NotificacaoService {
       logNotificationEvent({
         correlationId: event.correlationId,
         eventId: event.eventId,
+        eventType: event.eventType,
         ordemServicoId: event.ordemServicoId,
         resultado: 'deduplicado',
         duracaoMs: Date.now() - startedAt,
@@ -75,7 +75,7 @@ export class NotificacaoService {
       return;
     }
 
-    const email = buildStatusChangedEmail(event);
+    const email = buildNotificacaoEmail(event);
 
     try {
       await this.emailSender.send({
@@ -87,6 +87,7 @@ export class NotificacaoService {
       logNotificationEvent({
         correlationId: event.correlationId,
         eventId: event.eventId,
+        eventType: event.eventType,
         ordemServicoId: event.ordemServicoId,
         resultado: 'enviado',
         duracaoMs: Date.now() - startedAt,
@@ -95,6 +96,7 @@ export class NotificacaoService {
       logNotificationEvent({
         correlationId: event.correlationId,
         eventId: event.eventId,
+        eventType: event.eventType,
         ordemServicoId: event.ordemServicoId,
         resultado: 'erro_transiente',
         duracaoMs: Date.now() - startedAt,

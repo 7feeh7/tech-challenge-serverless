@@ -21,3 +21,6 @@ export interface ErrorResponse {
 }
 
 export * from './status-changed.event';
+export * from './invalid-notification-event.error';
+export * from './pagamento-disponivel.event';
+export * from './notificacao.event';
