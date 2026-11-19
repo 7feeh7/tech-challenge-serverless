@@ -31,7 +31,7 @@ flowchart LR
     GW[API Gateway /auth/cpf] --> AUTH[Lambda auth-cpf]
     SQS[SQS notificacao] --> NOTIF[Lambda notificacao]
     AUTH -->|HTTP interno via NLB| OS[OS Service]
-    NOTIF --> SG[SendGrid]
+    NOTIF --> SG[Resend]
 ```
 
 Visão completa: [diagrama componentes](https://github.com/7feeh7/tech-challenge-oficina/blob/main/docs/diagramas/componentes-nuvem.md) · Sequência auth: [sequencia-auth-cpf](https://github.com/7feeh7/tech-challenge-oficina/blob/main/docs/diagramas/sequencia-auth-cpf.md) · RFCs/ADRs: [rfcs](https://github.com/7feeh7/tech-challenge-oficina/tree/main/docs/rfcs), [adrs](https://github.com/7feeh7/tech-challenge-oficina/tree/main/docs/adrs)
@@ -53,7 +53,7 @@ src/
     auth-cpf/handler.ts
     notificacao/handler.ts
   shared/
-    adapters/     api-gateway, os-cliente (HTTP ao OS), sendgrid
+    adapters/     api-gateway, os-cliente (HTTP ao OS), resend
     services/     jwt, secrets, logs e metricas
     validators/   cpf
     types/

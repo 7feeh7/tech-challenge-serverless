@@ -1,4 +1,4 @@
-import { EmailSender } from '../../shared/adapters/sendgrid.adapter';
+import { EmailSender } from '../../shared/adapters/resend.adapter';
 import { buildNotificacaoEmail } from '../../shared/services/email-content.service';
 import {
   markEventProcessed,

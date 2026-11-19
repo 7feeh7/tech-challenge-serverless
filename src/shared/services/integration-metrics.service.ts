@@ -2,7 +2,7 @@ export type IntegrationName =
   | 'os_service'
   | 'sns'
   | 'sqs'
-  | 'sendgrid'
+  | 'resend'
   | 'secrets_manager'
   | 'lambda';
 
