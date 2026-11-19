@@ -1,5 +1,5 @@
 import { SQSEvent, SQSRecord } from 'aws-lambda';
-import { SendGridEmailSender } from '../../shared/adapters/sendgrid.adapter';
+import { ResendEmailSender } from '../../shared/adapters/resend.adapter';
 import { sanitizarDetalhe } from '../../shared/services/pii-mask.service';
 import { obterSecret } from '../../shared/services/secrets.service';
 import { extractMessageIdentifiers } from '../../shared/types/notificacao.event';
@@ -15,11 +15,11 @@ async function getService(): Promise<NotificacaoService> {
     return cachedService;
   }
 
-  const secretArn = process.env.SENDGRID_SECRET_ARN;
-  const fromEmail = process.env.SENDGRID_FROM_EMAIL;
+  const secretArn = process.env.RESEND_SECRET_ARN;
+  const fromEmail = process.env.RESEND_FROM_EMAIL;
 
   if (!secretArn || !fromEmail) {
-    throw new Error('SENDGRID_SECRET_ARN/SENDGRID_FROM_EMAIL não configurados');
+    throw new Error('RESEND_SECRET_ARN/RESEND_FROM_EMAIL não configurados');
   }
 
   const secretJson = await obterSecret(secretArn);
@@ -27,7 +27,7 @@ async function getService(): Promise<NotificacaoService> {
   const apiKey = parsed.apiKey ?? secretJson;
 
   cachedService = new NotificacaoService(
-    new SendGridEmailSender(apiKey),
+    new ResendEmailSender(apiKey),
     fromEmail,
   );
 

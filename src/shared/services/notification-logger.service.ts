@@ -32,7 +32,7 @@ export function logNotificationEvent(context: NotificationLogContext): void {
       JSON.stringify({
         evento: 'integracao_metrica',
         metric: 'oficina.integracao.falha',
-        integration: 'sendgrid',
+        integration: 'resend',
         correlationId: context.correlationId,
         environment: process.env.NODE_ENV ?? 'development',
       }),

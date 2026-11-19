@@ -9,8 +9,8 @@ jest.mock('../src/shared/services/secrets.service', () => ({
   obterSecret: jest.fn(),
 }));
 
-jest.mock('../src/shared/adapters/sendgrid.adapter', () => ({
-  SendGridEmailSender: jest.fn().mockImplementation(() => ({
+jest.mock('../src/shared/adapters/resend.adapter', () => ({
+  ResendEmailSender: jest.fn().mockImplementation(() => ({
     send: (...args: unknown[]) => mockSend(...args),
   })),
 }));
@@ -39,8 +39,8 @@ const logsDeErro = (spy: jest.SpyInstance): Record<string, unknown>[] =>
 
 describe('handler da notificacao', () => {
   beforeAll(() => {
-    process.env.SENDGRID_SECRET_ARN = 'arn:aws:secretsmanager:teste';
-    process.env.SENDGRID_FROM_EMAIL = 'oficina@oficina.com';
+    process.env.RESEND_SECRET_ARN = 'arn:aws:secretsmanager:teste';
+    process.env.RESEND_FROM_EMAIL = 'oficina@oficina.com';
     (obterSecret as jest.Mock).mockResolvedValue(
       JSON.stringify({ apiKey: 'chave-de-teste' }),
     );
@@ -89,7 +89,7 @@ describe('handler da notificacao', () => {
   });
 
   it('reporta o item com falha transiente e registra o correlationId', async () => {
-    mockSend.mockRejectedValue(new Error('SendGrid 503'));
+    mockSend.mockRejectedValue(new Error('Resend 503'));
     const errorSpy = jest.spyOn(console, 'error').mockImplementation();
 
     const resultado = await handler(
@@ -127,7 +127,7 @@ describe('handler da notificacao', () => {
   });
 
   it('mascara o e-mail no motivo da falha registrado no log', async () => {
-    mockSend.mockRejectedValue(new Error('SendGrid recusou joao@email.com'));
+    mockSend.mockRejectedValue(new Error('Resend recusou joao@email.com'));
     const errorSpy = jest.spyOn(console, 'error').mockImplementation();
 
     await handler(
@@ -137,7 +137,7 @@ describe('handler da notificacao', () => {
     );
 
     const [log] = logsDeErro(errorSpy);
-    expect(log.erro).toBe('SendGrid recusou jo***@email.com');
+    expect(log.erro).toBe('Resend recusou jo***@email.com');
   });
 
   describe('configuração', () => {
@@ -150,25 +150,25 @@ describe('handler da notificacao', () => {
       return {
         handler: (await import('../src/functions/notificacao/handler'))
           .handler,
-        SendGridEmailSender: (
-          await import('../src/shared/adapters/sendgrid.adapter')
-        ).SendGridEmailSender as unknown as jest.Mock,
+        ResendEmailSender: (
+          await import('../src/shared/adapters/resend.adapter')
+        ).ResendEmailSender as unknown as jest.Mock,
         obterSecret: (await import('../src/shared/services/secrets.service'))
           .obterSecret as jest.Mock,
       };
     };
 
     const configuracaoOriginal = {
-      secretArn: process.env.SENDGRID_SECRET_ARN,
-      fromEmail: process.env.SENDGRID_FROM_EMAIL,
+      secretArn: process.env.RESEND_SECRET_ARN,
+      fromEmail: process.env.RESEND_FROM_EMAIL,
     };
 
     afterEach(() => {
-      process.env.SENDGRID_SECRET_ARN = configuracaoOriginal.secretArn;
-      process.env.SENDGRID_FROM_EMAIL = configuracaoOriginal.fromEmail;
+      process.env.RESEND_SECRET_ARN = configuracaoOriginal.secretArn;
+      process.env.RESEND_FROM_EMAIL = configuracaoOriginal.fromEmail;
     });
 
-    it.each(['SENDGRID_SECRET_ARN', 'SENDGRID_FROM_EMAIL'])(
+    it.each(['RESEND_SECRET_ARN', 'RESEND_FROM_EMAIL'])(
       'falha o lote inteiro quando %s não está configurada',
       async (variavel) => {
         delete process.env[variavel];
@@ -187,7 +187,7 @@ describe('handler da notificacao', () => {
 
       await modulos.handler(criarEventoSqs([]));
 
-      expect(modulos.SendGridEmailSender).toHaveBeenCalledWith('chave-do-json');
+      expect(modulos.ResendEmailSender).toHaveBeenCalledWith('chave-do-json');
     });
 
     it('usa o segredo inteiro como chave quando o JSON não tem apiKey', async () => {
@@ -197,7 +197,7 @@ describe('handler da notificacao', () => {
 
       await modulos.handler(criarEventoSqs([]));
 
-      expect(modulos.SendGridEmailSender).toHaveBeenCalledWith(segredo);
+      expect(modulos.ResendEmailSender).toHaveBeenCalledWith(segredo);
     });
   });
 });

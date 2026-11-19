@@ -2,7 +2,7 @@
 
 ## Fluxo
 
-`OS Service → outbox → SNS → SQS → Lambda notificacao → SendGrid`
+`OS Service → outbox → SNS → SQS → Lambda notificacao → Resend`
 
 A Lambda despacha pelo `eventType` e aceita dois eventos:
 
@@ -76,7 +76,7 @@ A Lambda responde com `batchItemFailures` (o *event source mapping* usa `ReportB
 | Situação | Resultado no log | Vai para a DLQ |
 | --- | --- | --- |
 | JSON inválido, `eventType` desconhecido, versão não suportada, payload incompleto ou inválido | `invalido` (`notificacao_status_permanente`) | Sim, depois das tentativas |
-| Falha ao enviar o e-mail (SendGrid) | `erro_transiente` (`notificacao_status_retry`) | Só se persistir |
+| Falha ao enviar o e-mail (Resend) | `erro_transiente` (`notificacao_status_retry`) | Só se persistir |
 | Destinatário sem e-mail | `sem_email` | Não: o item é confirmado e o motivo fica no log |
 | Evento repetido (mesmo `eventId`) | `deduplicado` | Não |
 
@@ -94,7 +94,7 @@ Todo processamento registra `correlationId`, `eventId`, `eventType`, `ordemServi
 ## DLQ e reprocessamento
 
 1. Inspecione mensagens na DLQ via console SQS ou CLI.
-2. Corrija a causa raiz (payload inválido, secret SendGrid, etc.). Procure pelo `correlationId` nos logs da Lambda para localizar o processamento.
+2. Corrija a causa raiz (payload inválido, secret Resend, etc.). Procure pelo `correlationId` nos logs da Lambda para localizar o processamento.
 3. Reenvie manualmente para a fila principal **somente** após correção.
 4. Não reencaminhe mensagens permanentemente inválidas — evita loop infinito.
 5. Prefira republicar um novo evento pela API quando a transação de negócio puder ser repetida de forma segura.

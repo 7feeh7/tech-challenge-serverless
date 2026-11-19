@@ -4,7 +4,7 @@ import {
   TransientNotificationError,
 } from '../src/functions/notificacao/notificacao.service';
 import * as notificacaoEvent from '../src/shared/types/notificacao.event';
-import { EmailSender } from '../src/shared/adapters/sendgrid.adapter';
+import { EmailSender } from '../src/shared/adapters/resend.adapter';
 import { resetDedupeCache } from '../src/shared/services/dedupe.service';
 import { PAGAMENTO_DISPONIVEL_EVENT_TYPE } from '../src/shared/types/pagamento-disponivel.event';
 import {
@@ -134,9 +134,9 @@ describe('NotificacaoService', () => {
     expect(sender.send).not.toHaveBeenCalled();
   });
 
-  it('retries transient SendGrid failures', async () => {
+  it('retries transient Resend failures', async () => {
     const sender = criarSenderMock();
-    sender.send.mockRejectedValue(new Error('SendGrid 503'));
+    sender.send.mockRejectedValue(new Error('Resend 503'));
     const service = new NotificacaoService(sender, 'oficina@oficina.com');
 
     await expect(
@@ -271,7 +271,7 @@ describe('NotificacaoService', () => {
 
     it('repete a tentativa quando o provedor de e-mail falha', async () => {
       const sender = criarSenderMock();
-      sender.send.mockRejectedValue(new Error('SendGrid 503'));
+      sender.send.mockRejectedValue(new Error('Resend 503'));
       const service = new NotificacaoService(sender, 'oficina@oficina.com');
 
       await expect(
@@ -347,7 +347,7 @@ describe('NotificacaoService', () => {
     it('registra o correlationId na falha transiente', async () => {
       const logSpy = jest.spyOn(console, 'log');
       const sender = criarSenderMock();
-      sender.send.mockRejectedValue(new Error('SendGrid 503'));
+      sender.send.mockRejectedValue(new Error('Resend 503'));
       const service = new NotificacaoService(sender, 'oficina@oficina.com');
 
       await expect(
