@@ -1,11 +1,4 @@
 {
   // Falha o CI para qualquer vulnerabilidade high ou critical.
-  "high": true,
-  "allowlist": [
-    // picomatch <=4.0.7 (ReDoS em extglobs repetidos). Não há versão corrigida
-    // publicada e a cadeia é só de desenvolvimento (jest, ts-jest, eslint);
-    // nada disso entra no bundle das Lambdas. Decisão do autor em 2026-11-18.
-    // Remover esta entrada quando sair um picomatch corrigido.
-    "GHSA-fc5q-39xc-vjpf"
-  ]
+  "high": true
 }
