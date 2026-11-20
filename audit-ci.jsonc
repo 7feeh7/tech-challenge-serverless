@@ -1,0 +1,4 @@
+{
+  // Falha o CI para qualquer vulnerabilidade high ou critical.
+  "high": true
+}

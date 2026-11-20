@@ -1,8 +1,8 @@
 export type IntegrationName =
-  | 'postgresql'
+  | 'os_service'
   | 'sns'
   | 'sqs'
-  | 'sendgrid'
+  | 'resend'
   | 'secrets_manager'
   | 'lambda';
 
